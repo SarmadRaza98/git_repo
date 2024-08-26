@@ -1,0 +1,57 @@
+
+version: '3.8'
+services:
+  registry:
+    image: registry:2
+    container_name: docker-registry
+    restart: always
+    environment:
+      REGISTRY_AUTH: htpasswd
+      REGISTRY_AUTH_HTPASSWD_REALM: Registry-Realm
+      REGISTRY_AUTH_HTPASSWD_PATH: /auth/registry.password
+      REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY: /data
+    ports:
+      - 5000:5000
+    volumes:
+      - myregistrydata:/data
+      - ./auth:/auth
+    networks:
+      - mynet
+
+  nginx:
+    image: nginx:alpine
+    container_name: nginx
+    restart: always
+    tty: true
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d/:/etc/nginx/conf.d/
+      - ./nginx/ssl/:/etc/pki/tls/certs/ # Ensure SSL certificates are mounted here
+      - ./nginx/ssl/:/etc/pki/tls/private/ # Ensure SSL keys are mounted here
+    networks:
+      - mynet
+
+  docker-registry-ui:
+    image: konradkleine/docker-registry-frontend:v2
+    container_name: docker-registry-ui
+    restart: always
+    ports:
+      - "8080:80"
+    environment:
+      - ENV_DOCKER_REGISTRY_HOST=docker-registry
+      - ENV_REGISTRY_PROXY_FQDN=https://local.domain # Use HTTPS for UI
+    depends_on:
+      - registry
+    networks:
+      - mynet
+
+networks:
+  mynet:
+    driver: bridge
+
+volumes:
+  myregistrydata:
+    driver: local
+
